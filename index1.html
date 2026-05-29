@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+
+<html lang="en">
+
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>Stock Dashboard</title>
+
+<link
+href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+rel="stylesheet">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+  background:#101418;
+  color:white;
+  padding:20px;
+}
+
+.card{
+  background:#1c2228;
+  border:none;
+  border-radius:16px;
+  margin-bottom:20px;
+}
+
+.table{
+  color:white;
+}
+
+.buy{
+  color:#00ff99;
+  font-weight:bold;
+}
+
+.sell{
+  color:#ff6666;
+  font-weight:bold;
+}
+
+.hold{
+  color:#ffd966;
+  font-weight:bold;
+}
+
+.loading{
+  font-size:24px;
+  padding:40px;
+  text-align:center;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container-fluid">
+
+<h1 class="mb-4">
+Stock Recommendation Dashboard
+</h1>
+
+<div class="row">
+
+<div class="col-md-3">
+<div class="card p-3">
+<h5>Total Stocks</h5>
+<h2 id="totalStocks">0</h2>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="card p-3">
+<h5>Buy Signals</h5>
+<h2 id="buySignals">0</h2>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="card p-3">
+<h5>Sell Signals</h5>
+<h2 id="sellSignals">0</h2>
+</div>
+</div>
+
+<div class="col-md-3">
+<div class="card p-3">
+<h5>Hold Signals</h5>
+<h2 id="holdSignals">0</h2>
+</div>
+</div>
+
+</div>
+
+<div class="card p-3">
+
+<table class="table table-striped">
+
+<thead>
+
+<tr>
+<th>Symbol</th>
+<th>Current</th>
+<th>Week Ago</th>
+<th>Weekly $</th>
+<th>Weekly %</th>
+<th>Action</th>
+</tr>
+
+</thead>
+
+<tbody id="stockTable">
+
+<tr>
+<td colspan="6" class="loading">
+Loading data...
+</td>
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+<div class="card p-3">
+
+<h4 class="mb-3">
+Weekly % Change
+</h4>
+
+<canvas id="stockChart"></canvas>
+
+</div>
+
+</div>
+
+<script>
+
+const API_URL =
+"https://script.google.com/macros/s/AKfycbwIHOHwq0Kh-Pr-uDecd3Dd8k7dC3EbUT8OoOZmnZlbtSaSvYBcP2Zvm6V8swsdQYw6/exec";
+
+let chartInstance = null;
+
+async function loadDashboard(){
+
+  try{
+
+    console.log("Loading dashboard");
+
+    const response =
+      await fetch(API_URL);
+
+    console.log(response);
+
+    const data =
+      await response.json();
+
+    console.log(data);
+
+    if(!Array.isArray(data)){
+
+      throw new Error(
+        "Invalid JSON response"
+      );
+
+    }
+
+    buildTable(data);
+
+    buildChart(data);
+
+  }
+  catch(error){
+
+    console.error(error);
+
+    document.getElementById(
+      "stockTable"
+    ).innerHTML = `
+      <tr>
+        <td colspan="6">
+          ERROR LOADING DATA
+          <br><br>
+          Open F12 console
+        </td>
+      </tr>
+    `;
+
+  }
+
+}
+
+function buildTable(data){
+
+  const tbody =
+    document.getElementById(
+      "stockTable"
+    );
+
+  tbody.innerHTML = "";
+
+  let buyCount = 0;
+  let sellCount = 0;
+  let holdCount = 0;
+
+  data.forEach(stock => {
+
+    let cls = "hold";
+
+    if(stock.action.includes("BUY")){
+
+      cls = "buy";
+      buyCount++;
+
+    }
+    else if(stock.action.includes("SELL")){
+
+      cls = "sell";
+      sellCount++;
+
+    }
+    else{
+
+      holdCount++;
+
+    }
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${stock.symbol}</td>
+        <td>$${stock.currentPrice}</td>
+        <td>$${stock.weekAgoPrice}</td>
+        <td>$${stock.priceDiff}</td>
+        <td>${stock.pctChange}%</td>
+        <td class="${cls}">
+          ${stock.action}
+        </td>
+      </tr>
+    `;
+
+  });
+
+  document.getElementById(
+    "totalStocks"
+  ).innerText = data.length;
+
+  document.getElementById(
+    "buySignals"
+  ).innerText = buyCount;
+
+  document.getElementById(
+    "sellSignals"
+  ).innerText = sellCount;
+
+  document.getElementById(
+    "holdSignals"
+  ).innerText = holdCount;
+
+}
+
+function buildChart(data){
+
+  const labels =
+    data.map(x => x.symbol);
+
+  const values =
+    data.map(x =>
+      parseFloat(x.pctChange)
+    );
+
+  const ctx =
+    document.getElementById(
+      "stockChart"
+    );
+
+  if(chartInstance){
+
+    chartInstance.destroy();
+
+  }
+
+  chartInstance =
+    new Chart(ctx, {
+
+      type:'bar',
+
+      data:{
+
+        labels: labels,
+
+        datasets:[{
+
+          label:'Weekly %',
+
+          data: values
+
+        }]
+
+      },
+
+      options:{
+
+        responsive:true,
+
+        scales:{
+
+          y:{
+            beginAtZero:true
+          }
+
+        }
+
+      }
+
+    });
+
+}
+
+loadDashboard();
+
+</script>
+
+</body>
+</html>
